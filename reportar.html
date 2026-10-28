@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es-AR" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Avisar que estoy afectado | Emergencia El Niño · Las Toscas</title>
+  <meta name="description" content="Avisá a la Municipalidad de Las Toscas que tu casa está afectada por el agua.">
+  <meta name="theme-color" content="#0b2a4a">
+  <script>try{var t=localStorage.getItem("lt-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-mode")}catch(e){}</script>
+  <link rel="icon" type="image/png" href="assets/img/escudo-256.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/emergencia.css">
+</head>
+<body>
+  <div id="em-header" data-volver="index.html"></div>
+
+  <main id="main" class="em-wrap" style="max-width:760px">
+    <div class="em-page-head" id="cabecera">
+      <h1>Avisar que estoy afectado</h1>
+      <p>Son 3 pasos cortos. Tarda menos de 2 minutos.</p>
+      <div class="em-progress" aria-hidden="true"><span class="is-done"></span><span></span><span></span></div>
+      <div class="em-progress-label" id="pasoLabel">Paso 1 de 3</div>
+    </div>
+
+    <div class="em-yaenviado" id="yaEnviado" hidden>
+      <p><i class="fa-solid fa-circle-info"></i><span>Desde este teléfono ya mandaste el aviso <b id="yaNro"></b>. No hace falta mandarlo de nuevo: el Municipio ya lo tiene.</span></p>
+      <div class="em-done__actions" style="margin-top:12px">
+        <a class="em-btn em-btn--primary" id="yaVer" href="mapa.html"><i class="fa-solid fa-map-location-dot"></i>Ver mi aviso</a>
+        <button class="em-btn em-btn--outline" type="button" id="yaOtro">Es otra casa, mandar otro aviso</button>
+      </div>
+    </div>
+
+    <form id="reporte" novalidate>
+      <!-- PASO 1 -->
+      <section class="em-step" data-paso="1" tabindex="-1" aria-labelledby="t1">
+        <h2 id="t1">¿Cómo está tu casa?</h2>
+        <div class="em-levels" role="radiogroup" aria-labelledby="t1">
+          <label class="em-level em-level--leve">
+            <input type="radio" name="nivel" value="leve">
+            <span class="em-level__icon"><i class="fa-solid fa-droplet"></i></span>
+            <span><b>Leve</b><small>Está entrando agua al patio o a la casa, pero podemos quedarnos.</small></span>
+            <span class="em-level__check"><i class="fa-solid fa-check"></i></span>
+          </label>
+          <label class="em-level em-level--urg">
+            <input type="radio" name="nivel" value="urgente">
+            <span class="em-level__icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <span><b>Urgente</b><small>La casa está inundada. Necesitamos ayuda o salir ya.</small></span>
+            <span class="em-level__check"><i class="fa-solid fa-check"></i></span>
+          </label>
+        </div>
+        <p class="em-error" id="errNivel"><i class="fa-solid fa-circle-exclamation"></i>Elegí una de las dos opciones.</p>
+        <div class="em-nav em-nav--single">
+          <button class="em-btn em-btn--primary em-btn--block" type="button" data-sig="2">Siguiente<i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- PASO 2 -->
+      <section class="em-step" data-paso="2" tabindex="-1" aria-labelledby="t2" hidden>
+        <h2 id="t2">¿Dónde estás?</h2>
+        <div class="em-locate">
+          <button class="em-btn em-btn--primary em-btn--block" type="button" id="btnGeo"><i class="fa-solid fa-location-crosshairs"></i>Usar mi ubicación actual</button>
+          <p class="em-hint" style="margin:0;text-align:center">o tocá el mapa donde está tu casa</p>
+          <div class="em-pickmap" id="pickMap" aria-label="Mapa para marcar tu casa"></div>
+          <div class="em-locstatus" id="locStatus"><i class="fa-solid fa-hand-pointer"></i><span>Todavía no marcaste tu ubicación.</span></div>
+        </div>
+        <div class="em-field" id="fDir">
+          <label for="dir">Calle y número</label>
+          <input id="dir" name="dir" type="text" autocomplete="street-address" placeholder="Ej: Calle 12 N° 450">
+          <p class="em-error"><i class="fa-solid fa-circle-exclamation"></i>Escribí la calle para que te podamos encontrar.</p>
+        </div>
+        <div class="em-field">
+          <label for="ref">Aclaración para encontrarte <span class="opt">(opcional)</span></label>
+          <input id="ref" name="ref" type="text" placeholder="Ej: portón verde, al lado de la escuela, sin número">
+        </div>
+        <div class="em-nav">
+          <button class="em-btn em-btn--outline" type="button" data-sig="1"><i class="fa-solid fa-arrow-left"></i><span class="sr-only">Atrás</span></button>
+          <button class="em-btn em-btn--primary" type="button" data-sig="3">Siguiente<i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </section>
+
+      <!-- PASO 3 -->
+      <section class="em-step" data-paso="3" tabindex="-1" aria-labelledby="t3" hidden>
+        <h2 id="t3">Tus datos de contacto</h2>
+        <div class="em-field" id="fNombre">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" type="text" autocomplete="name" placeholder="Ej: María Gómez">
+          <p class="em-error"><i class="fa-solid fa-circle-exclamation"></i>Escribí tu nombre.</p>
+        </div>
+        <div class="em-field" id="fTel">
+          <label for="tel">Teléfono / celular</label>
+          <input id="tel" name="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 3482 123456">
+          <p class="em-error"><i class="fa-solid fa-circle-exclamation"></i>Escribí un teléfono para que te puedan llamar.</p>
+        </div>
+        <div class="em-field">
+          <label for="personas">¿Cuántas personas viven en la casa? <span class="opt">(opcional)</span></label>
+          <input id="personas" name="personas" type="number" inputmode="numeric" min="1" max="30" placeholder="Ej: 4">
+        </div>
+        <div class="em-field">
+          <span class="em-label" id="lNec">¿Qué necesitás? <span class="opt">(podés marcar varias)</span></span>
+          <div class="em-needs" id="needs" role="group" aria-labelledby="lNec"></div>
+        </div>
+        <div class="em-field">
+          <label for="comentario">¿Algo más que tengamos que saber? <span class="opt">(opcional)</span></label>
+          <textarea id="comentario" name="comentario" placeholder="Ej: hay una persona mayor, bebés, mascotas…"></textarea>
+        </div>
+        <label class="em-consent" id="fConsent">
+          <input type="checkbox" name="acepto" id="acepto">
+          <span>Acepto que <b>mi nombre, teléfono y ubicación se muestren en el mapa público</b> para que el Municipio y los vecinos me puedan ayudar.</span>
+        </label>
+        <p class="em-error" id="errConsent"><i class="fa-solid fa-circle-exclamation"></i>Para enviar el aviso tenés que aceptar.</p>
+        <p class="em-warnfalse"><i class="fa-solid fa-scale-balanced"></i><span><b>Importante:</b> un aviso falso le saca ayuda a quien de verdad la necesita y puede tener consecuencias legales. El Municipio te va a llamar para confirmar.</span></p>
+        <div class="em-nav">
+          <button class="em-btn em-btn--outline" type="button" data-sig="2"><i class="fa-solid fa-arrow-left"></i><span class="sr-only">Atrás</span></button>
+          <button class="em-btn em-btn--urg" type="submit"><i class="fa-solid fa-paper-plane"></i>Enviar aviso</button>
+        </div>
+      </section>
+    </form>
+
+    <!-- CONFIRMACIÓN -->
+    <section class="em-done" id="listo" tabindex="-1" hidden aria-live="polite">
+      <div class="em-done__icon"><i class="fa-solid fa-check"></i></div>
+      <h2>¡Listo! Recibimos tu aviso</h2>
+      <p id="listoTxt">Tu número de aviso es</p>
+      <div class="em-done__nro" id="nro"></div>
+      <p class="muted">El Municipio ya lo puede ver. Si te llaman, tené el teléfono a mano.</p>
+      <div class="em-alert911" id="alerta911" hidden>
+        <b><i class="fa-solid fa-triangle-exclamation"></i> Si hay peligro inmediato, no esperes</b>
+        <span>Llamá ahora al 911 o a Defensa Civil (103).</span>
+        <a class="em-btn em-btn--urg em-btn--block" href="tel:911"><i class="fa-solid fa-phone-volume"></i>Llamar al 911</a>
+      </div>
+      <div class="em-done__actions">
+        <a class="em-btn em-btn--primary" id="verMapa" href="mapa.html"><i class="fa-solid fa-map-location-dot"></i>Ver mi aviso en el mapa</a>
+        <a class="em-btn em-btn--outline" href="index.html"><i class="fa-solid fa-house"></i>Volver al inicio</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="em-footer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="assets/js/datos.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/reportar.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es-AR" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel municipal | Emergencia El Niño · Las Toscas</title>
+  <meta name="description" content="Panel del personal municipal para coordinar la asistencia a vecinos afectados.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0b2a4a">
+  <script>try{var t=localStorage.getItem("lt-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-mode")}catch(e){}</script>
+  <link rel="icon" type="image/png" href="assets/img/escudo-256.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/emergencia.css">
+</head>
+<body>
+  <div id="em-header" data-volver="index.html"></div>
+
+  <main id="main" class="em-wrap">
+    <!-- Ingreso simulado -->
+    <section class="em-login" id="login">
+      <img src="assets/img/escudo-256.png" alt="">
+      <h1>Panel municipal</h1>
+      <p>Acceso para Defensa Civil, Desarrollo Humano y Obras Públicas.</p>
+      <div class="em-field" style="text-align:left">
+        <label for="usuario">Usuario</label>
+        <input id="usuario" type="text" value="defensa.civil" autocomplete="off">
+      </div>
+      <button class="em-btn em-btn--primary em-btn--block" type="button" id="entrar"><i class="fa-solid fa-right-to-bracket"></i>Ingresar</button>
+      <p class="em-hint mt-2">Demo: el ingreso es simulado, no pide contraseña.</p>
+    </section>
+
+    <!-- Panel -->
+    <div id="panel" hidden>
+      <div class="em-page-head">
+        <h1>Panel de coordinación</h1>
+        <p>Reportes ordenados por prioridad: urgentes sin atender primero. <b>Antes de mandar ayuda, llamá y tocá “Verificar”.</b></p>
+      </div>
+
+      <div class="em-kpis">
+        <div class="em-stat em-stat--urg"><b id="kUrg">0</b><span>Urgentes sin atender</span></div>
+        <div class="em-stat em-stat--leve"><b id="kLeve">0</b><span>Leves sin atender</span></div>
+        <div class="em-stat"><b id="kSinVerif" style="color:var(--camino)">0</b><span>Sin verificar</span></div>
+        <div class="em-stat em-stat--ok"><b id="kPers">0</b><span>Personas afectadas</span></div>
+      </div>
+
+      <div class="em-panelbar">
+        <div class="em-field">
+          <label for="fNivel">Gravedad</label>
+          <select id="fNivel"><option value="">Todas</option><option value="urgente">Urgente</option><option value="leve">Leve</option></select>
+        </div>
+        <div class="em-field">
+          <label for="fVerif">Verificación</label>
+          <select id="fVerif"><option value="">Todos</option><option value="no">Sin verificar</option><option value="si">Verificados</option><option value="marcados">Marcados como falsos</option></select>
+        </div>
+        <div class="em-field">
+          <label for="fEstado">Estado</label>
+          <select id="fEstado"><option value="abiertos">Sin terminar</option><option value="pendiente">Esperando ayuda</option><option value="en-camino">Ayuda en camino</option><option value="atendido">Atendidos</option><option value="descartado">Descartados (falsos)</option><option value="">Todos</option></select>
+        </div>
+        <button class="em-btn em-btn--outline" type="button" id="csv"><i class="fa-solid fa-file-csv"></i>Exportar</button>
+      </div>
+
+      <div class="em-panelgrid">
+        <div>
+          <div class="em-panel-foot"><b id="cuenta"></b></div>
+          <div class="em-list" id="lista"></div>
+        </div>
+        <div class="em-map" id="mapa" aria-label="Mapa de reportes"></div>
+      </div>
+      <p style="text-align:center"><button class="em-reset" type="button" id="reset">Reiniciar datos de la demo</button></p>
+    </div>
+  </main>
+
+  <div id="em-footer"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="assets/js/datos.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/panel.js"></script>
+</body>
+</html>

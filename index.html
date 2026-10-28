@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es-AR" class="no-js">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emergencia El Niño | Municipalidad de Las Toscas</title>
+  <meta name="description" content="Avisá si tu casa está afectada por el agua y mirá en el mapa qué vecinos necesitan ayuda. Municipalidad de Las Toscas, Santa Fe.">
+  <meta name="theme-color" content="#0b2a4a">
+  <script>try{var t=localStorage.getItem("lt-theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark-mode")}catch(e){}</script>
+  <link rel="icon" type="image/png" href="assets/img/escudo-256.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/emergencia.css">
+</head>
+<body>
+  <div id="em-header"></div>
+
+  <main id="main" class="em-wrap">
+    <section class="em-hero">
+      <span class="em-hero__badge"><i class="fa-solid fa-circle"></i>Alerta por lluvias e inundaciones</span>
+      <h1>Emergencia Hídrica<br>Fenómeno El Niño</h1>
+      <p>Si el agua está afectando tu casa, avisanos. Así el Municipio llega más rápido y los vecinos pueden dar una mano.</p>
+    </section>
+
+    <nav class="em-choices em-choices--3" aria-label="¿Qué querés hacer?">
+      <a class="em-choice em-choice--urg" href="reportar.html">
+        <span class="em-choice__icon"><i class="fa-solid fa-house-flood-water"></i></span>
+        <span class="em-choice__txt">
+          <b>Estoy afectado</b>
+          <span>Avisar que entra agua o que mi casa está inundada</span>
+        </span>
+        <i class="fa-solid fa-chevron-right em-choice__go" aria-hidden="true"></i>
+      </a>
+      <a class="em-choice em-choice--voz" href="hablar.html">
+        <span class="em-choice__icon"><i class="fa-solid fa-microphone"></i></span>
+        <span class="em-choice__txt">
+          <b>Avisar hablando</b>
+          <span>Si te cuesta escribir, contale a la asistente con tu voz</span>
+        </span>
+        <i class="fa-solid fa-chevron-right em-choice__go" aria-hidden="true"></i>
+      </a>
+      <a class="em-choice em-choice--map" href="mapa.html">
+        <span class="em-choice__icon"><i class="fa-solid fa-map-location-dot"></i></span>
+        <span class="em-choice__txt">
+          <b>Ver vecinos afectados</b>
+          <span>Mapa con quiénes necesitan ayuda y cómo contactarlos</span>
+        </span>
+        <i class="fa-solid fa-chevron-right em-choice__go" aria-hidden="true"></i>
+      </a>
+    </nav>
+
+    <section aria-label="Situación actual">
+      <div class="em-stats">
+        <div class="em-stat em-stat--urg"><b id="nUrg">–</b><span>Urgentes</span></div>
+        <div class="em-stat em-stat--leve"><b id="nLeve">–</b><span>Leves</span></div>
+        <div class="em-stat em-stat--ok"><b id="nOk">–</b><span>Ya atendidos</span></div>
+      </div>
+    </section>
+
+    <section class="em-tips" aria-labelledby="t-tips">
+      <h2 id="t-tips"><i class="fa-solid fa-circle-info" style="color:var(--blue-600)"></i>Mientras tanto, cuidate</h2>
+      <ul>
+        <li><i class="fa-solid fa-bolt"></i><span>Si entra agua a la casa, <b>cortá la luz</b> desde la llave general.</span></li>
+        <li><i class="fa-solid fa-box-archive"></i><span>Subí a lo alto documentos, remedios y cosas de valor.</span></li>
+        <li><i class="fa-solid fa-person-walking"></i><span>No camines ni manejes por calles con correntada.</span></li>
+        <li><i class="fa-solid fa-bottle-water"></i><span>Tomá sólo agua envasada o hervida.</span></li>
+      </ul>
+    </section>
+
+    <div class="em-muni-link"><a href="panel.html"><i class="fa-solid fa-user-shield"></i>Acceso para personal municipal</a></div>
+  </main>
+
+  <div id="em-footer"></div>
+
+  <script src="assets/js/datos.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script>
+    (function () {
+      var publicos = EM.todos().filter(EM.esPublico);
+      var abiertos = publicos.filter(function (r) { return !r.cerrado; });
+      document.getElementById("nUrg").textContent = abiertos.filter(function (r) { return r.nivel === "urgente"; }).length;
+      document.getElementById("nLeve").textContent = abiertos.filter(function (r) { return r.nivel === "leve"; }).length;
+      document.getElementById("nOk").textContent = publicos.length - abiertos.length;
+    })();
+  </script>
+</body>
+</html>
