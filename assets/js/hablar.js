@@ -146,11 +146,18 @@
   }
   if (window.speechSynthesis) speechSynthesis.getVoices(); // precarga la lista de voces
 
+  // Un audio nunca corta al anterior: los mensajes nuevos esperan en esta cola.
+  var pendientes = [];
+  var actual = null;     // mensaje que se está cargando o sonando
+  var esperando = false; // hay una respuesta de la IA en camino
+
   function alTerminar(m) {
     if (sonando === m) sonando = null;
+    if (actual === m) actual = null;
     m.estado = null;
     pintar();
-    setFase(terminado ? "fin" : "turno");
+    if (pendientes.length) { reproducir(pendientes.shift()); return; }
+    setFase(terminado ? "fin" : esperando ? "procesando" : "turno");
   }
 
   function detener() {
@@ -166,16 +173,19 @@
     if (v) u.voice = v;
     u.lang = v ? v.lang : "es-AR";
     u.rate = .95;
-    u.onend = u.onerror = function () { if (sonando === m) alTerminar(m); };
+    // Algunos navegadores no avisan cuando termina la voz: tiempo máximo según el largo del texto.
+    var tope = setTimeout(function () { if (sonando === m) { speechSynthesis.cancel(); alTerminar(m); } }, 2000 + u.text.split(/\s+/).length * 500);
+    u.onend = u.onerror = function () { clearTimeout(tope); if (sonando === m) alTerminar(m); };
     sonando = m; m.estado = "sonando";
     pintar(); setFase("sonando");
     speechSynthesis.speak(u);
   }
 
   function reproducir(m) {
-    if (m === sonando) { detener(); pintar(); setFase(terminado ? "fin" : "turno"); return; }
+    if (m === sonando) { detener(); actual = null; pintar(); setFase(terminado ? "fin" : esperando ? "procesando" : "turno"); return; }
     terminarGrabacion(true);
     detener();
+    actual = m;
     // Audio pregrabado o voz del navegador: no gastan IA. Sólo se genera voz para respuestas nuevas.
     if (m.local || (!usarIA && !m.audioUrl)) { hablarLocal(m); return; }
     m.estado = "cargando"; pintar(); setFase("sonando");
@@ -186,7 +196,7 @@
       pintar();
       return audio.play();
     }).catch(function (e) {
-      if (e && e.name === "NotAllowedError") { m.estado = null; sonando = null; pintar(); setFase("inicio"); return; }
+      if (e && e.name === "NotAllowedError") { m.estado = null; sonando = null; actual = null; pintar(); setFase("inicio"); return; }
       hablarLocal(m); // si el proxy no responde, lee la voz del navegador
     });
   }
@@ -210,13 +220,16 @@
     if (reporte) {
       terminado = true;
       historial.push({ rol: "fin", reporte: reporte });
+      $("barra").classList.add("is-fin");
     }
     pintar();
-    reproducir(m);
+    if (actual) pendientes.push(m); else reproducir(m);
   }
 
   // Interpreta la respuesta (de la IA o del guión): etiquetas [UBICACION] y [911], y el bloque <REPORTE>.
   function procesar(raw) {
+    esperando = false;
+    if (raw == null) { if (!actual) setFase(terminado ? "fin" : "turno"); pintar(); return; } // el guión no tenía nada que agregar
     var txt = String(raw || "");
     var rep = null;
     var mR = txt.match(/<REPORTE>([\s\S]*?)<\/REPORTE>/i);
@@ -251,7 +264,7 @@
 
   function llamarIA() {
     var mensajes = [{ role: "system", content: V.prompt }].concat(historial.filter(function (m) {
-      return (m.rol === "ia" || m.rol === "yo") && !m.ubicacion && !m.local && m.texto;
+      return (m.rol === "ia" || m.rol === "yo") && !m.local && m.texto;
     }).map(function (m) {
       return { role: m.rol === "yo" ? "user" : "assistant", content: m.texto };
     }));
@@ -282,7 +295,9 @@
       setFase("fin");
       return;
     }
-    setFase("procesando"); pintar();
+    esperando = true;
+    if (!actual) setFase("procesando");
+    pintar();
     var p = usarIA ? llamarIA().catch(function (e) {
       if (window.console) console.warn("Asistente: el proxy de IA no respondió, sigo con el guión local.", e);
       usarIA = false;
@@ -314,29 +329,37 @@
       .replace(/\s+/g, " ").trim().split(" ").slice(0, 3).join(" ");
   }
 
+  // Sin confirmación final: con los tres datos se manda el aviso (el saludo ya avisa que se ve en el mapa).
   function guion(t) {
     var d = G.d;
+    var B = "¿Tu nombre y un teléfono para llamarte?";
+    if (t === V.ubicacionMensaje) {
+      if (G.paso !== 1) return null; // ya tenía la dirección: sólo queda el "gracias"
+      d.dir = "Ubicación por GPS"; G.paso = 2;
+      return B;
+    }
     switch (G.paso) {
-      case 0: // gravedad (y dirección, si la dijo, queda en el comentario)
+      case 0: // qué pasa y, si la dijo, la calle
         d.nivel = /inund|urgent|sube|subiendo|salir|rodilla|cintura|peligro|atrapad|evacu/.test(norm(t)) ? "urgente" : "leve";
         d.comentario = t;
+        var peligro = d.nivel === "urgente" ? "Si hay peligro, llamá ya al 911. [911] " : "";
+        if (/\b(calle|avenida|av|pasaje|ruta|camino|esquina|barrio|frente|al lado)\b/.test(norm(t))) { d.dir = t; G.paso = 2; return peligro + B; }
         G.paso = 1;
-        return (d.nivel === "urgente" ? "Si hay peligro, llamá ya al 911. [911] " : "") + "¿En qué calle está tu casa? [UBICACION]";
+        return peligro + "¿En qué calle está tu casa? [UBICACION]";
       case 1:
         d.dir = t; G.paso = 2;
-        return "¿Tu nombre y un teléfono para llamarte?";
+        return B;
       case 2:
         var tel = telefono(t), nom = nombreDe(t);
-        if (nom) d.nombre = nom;
-        if (tel.length < 6) return d.nombre ? "¿Me decís el teléfono?" : "¿Me repetís tu nombre y teléfono?";
-        d.tel = tel; G.paso = 3;
+        if (nom && !d.nombre) d.nombre = nom;
+        G.pedidosTel = (G.pedidosTel || 1) + 1;
+        if (tel.length < 6 && G.pedidosTel <= 2) return "¿Un teléfono para llamarte? Puede ser de un familiar o vecino.";
+        if (tel.length >= 6) d.tel = tel;
+        G.paso = 3;
         return "¿Cuántas personas viven ahí?";
-      case 3:
-        d.personas = cantidad(t); G.paso = 4;
-        return "Aviso " + d.nivel + " en " + d.dir + ", a nombre de " + (d.nombre || "vos") + ". Se va a ver en el mapa para que te ayuden. ¿Lo mando?";
       default:
-        if (esNo(t)) { G.paso = 1; return "¿En qué calle está tu casa? [UBICACION]"; }
-        return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel, personas: d.personas, comentario: d.comentario, publico: true }) + "</REPORTE>";
+        d.personas = cantidad(t);
+        return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel || "", personas: d.personas, comentario: d.comentario, publico: true }) + "</REPORTE>";
     }
   }
 
@@ -501,9 +524,10 @@
           EM.toast("Estás fuera de Las Toscas: usamos un punto de ejemplo.");
         }
         pos = { lat: lat, lng: lng };
-        historial.push({ rol: "yo", ubicacion: true, hora: hora() });
-        pintar();
-        pista.innerHTML = '<i class="fa-solid fa-circle-check"></i> ¡Ubicación recibida! Igual decime la calle tocando el botón <span class="em-k em-k--mic"><i class="fa-solid fa-microphone"></i></span> rojo';
+        // "Gracias" pregrabado (sin IA) y la asistente sigue con la próxima pregunta: la ubicación ya es la dirección.
+        historial.push({ rol: "yo", ubicacion: true, texto: V.ubicacionMensaje, hora: hora() });
+        decir(V.ubicacion, {}, null, { audioUrl: V.ubicacionAudio });
+        if (!esperando && !terminado) responder(V.ubicacionMensaje);
       }, function () {
         u.disabled = false;
         u.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i>Mandar mi ubicación';
