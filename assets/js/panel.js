@@ -93,12 +93,11 @@
   });
 
   document.getElementById("csv").addEventListener("click", function () {
-    var cols = ["id", "nivel", "estado", "verificado", "falsos", "nombre", "tel", "dir", "ref", "personas", "necesita", "comentario", "lat", "lng", "fecha"];
+    var cols = ["id", "nivel", "estado", "verificado", "falsos", "nombre", "tel", "dir", "ref", "personas", "comentario", "lat", "lng", "fecha"];
     function celda(v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }
     var filas = filtrados(EM.ordenar(EM.todos())).map(function (r) {
       return cols.map(function (c) {
         if (c === "fecha") return celda(new Date(r.fecha).toLocaleString("es-AR"));
-        if (c === "necesita") return celda((r.necesita || []).map(function (id) { var n = EM.necesidad(id); return n ? n.label : id; }).join(" / "));
         return celda(r[c]);
       }).join(";");
     });

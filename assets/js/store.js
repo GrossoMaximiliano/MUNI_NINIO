@@ -128,7 +128,6 @@
     return "hace " + d + (d === 1 ? " día" : " días");
   }
   function telHref(t) { return "tel:" + String(t).replace(/[^\d+]/g, ""); }
-  function necesidad(id) { return E.necesidades.filter(function (n) { return n.id === id; })[0]; }
   var NIVEL = {
     urgente: { label: "Urgente", icon: "fa-triangle-exclamation" },
     leve: { label: "Leve", icon: "fa-droplet" }
@@ -239,9 +238,6 @@
   function tarjeta(r, opts) {
     opts = opts || {};
     var n = NIVEL[r.nivel], e = ESTADO[r.estado] || ESTADO.pendiente;
-    var necesita = (r.necesita || []).map(function (id) {
-      var x = necesidad(id); return x ? "<span>" + esc(x.label) + "</span>" : "";
-    }).join("");
     var mapsUrl = "https://www.google.com/maps/dir/?api=1&destination=" + r.lat + "," + r.lng;
     var acciones = "";
     if (opts.acciones === "publico") {
@@ -288,7 +284,6 @@
       '<p class="em-card__where"><i class="fa-solid fa-location-dot"></i>' + esc(r.dir) + (r.ref ? ' <span class="em-card__ref">(' + esc(r.ref) + ')</span>' : '') + '</p>' +
       '<p class="em-card__where"><i class="fa-solid fa-phone"></i><a href="' + telHref(r.tel) + '">' + esc(r.tel) + '</a>' +
         (r.personas ? ' · <i class="fa-solid fa-people-roof"></i>' + r.personas + (r.personas == 1 ? " persona" : " personas") : "") + '</p>' +
-      (necesita ? '<div class="em-card__needs">' + necesita + '</div>' : '') +
       (r.comentario ? '<p class="em-card__comment">“' + esc(r.comentario) + '”</p>' : '') +
       '<p class="em-card__meta">' + r.id + ' · ' + hace(r.fecha) +
         (opts.verEnMapa ? ' · <button class="em-card__see" type="button" data-ver="' + r.id + '">Ver en el mapa</button>' : '') + '</p>' +
@@ -299,7 +294,7 @@
   window.EM = {
     todos: todos, agregar: agregar, cambiar: cambiar, cambiarEstado: cambiarEstado, reiniciar: reiniciar, ordenar: ordenar,
     esPublico: esPublico, marcarFalso: marcarFalso, miAvisoAbierto: miAvisoAbierto,
-    esc: esc, hace: hace, telHref: telHref, necesidad: necesidad, NIVEL: NIVEL, ESTADO: ESTADO, toast: toast,
+    esc: esc, hace: hace, telHref: telHref, NIVEL: NIVEL, ESTADO: ESTADO, toast: toast,
     crearMapa: crearMapa, icono: icono, tarjeta: tarjeta
   };
 })();

@@ -26,10 +26,6 @@
     });
   }
 
-  document.getElementById("needs").innerHTML = E.necesidades.map(function (n) {
-    return '<label class="em-need"><input type="checkbox" name="necesita" value="' + n.id + '"><i class="fa-solid ' + n.icon + '"></i>' + EM.esc(n.label) + '</label>';
-  }).join("");
-
   function err(el, on) {
     if (!el) return;
     el.classList.toggle(el.classList.contains("em-error") ? "is-visible" : "has-error", on);
@@ -143,7 +139,6 @@
       ref: document.getElementById("ref").value.trim(),
       lat: pos.lat, lng: pos.lng,
       personas: parseInt(document.getElementById("personas").value, 10) || null,
-      necesita: Array.prototype.map.call(form.querySelectorAll('input[name="necesita"]:checked'), function (c) { return c.value; }),
       comentario: document.getElementById("comentario").value.trim()
     });
 

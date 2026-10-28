@@ -18,6 +18,17 @@ Usa el mismo proxy de IA que MuniPoc (`https://server.brl-vcmp.com`, rutas `/ia/
 
 En otro origen (por ejemplo `localhost`) o si el proxy no responde, se usa un guión local con las mismas preguntas, la voz del navegador y su reconocimiento de voz. Para forzar la IA en otro origen permitido: `hablar.html?ia=1`.
 
+### Costo por charla
+
+Cada respuesta del vecino pasa por tres IAs (transcripción, chat y voz), así que la charla está pensada para ser corta:
+
+- Sólo se piden los datos necesarios: qué pasa y dónde, nombre y teléfono (en una sola pregunta) y cuántas personas viven. No se pregunta qué necesitan: cada vecino ayuda como quiera.
+- Preguntas de 15 palabras como máximo, sin agradecimientos ni repeticiones. Un aviso típico se completa en 4 o 5 respuestas del vecino.
+- El saludo y el cierre son audios pregrabados (`assets/audio/`), así que no se generan cada vez. Si se cambia el texto de `saludo` o `cierre` en `voz-prompt.js`, hay que regenerar esos audios.
+- Cada audio del vecino dura 30 segundos como máximo.
+- Desde la 5.ª respuesta se le pide a la IA que cierre con lo que tenga. Pasada la 8.ª, la charla se corta y se ofrece llamar al 103 o usar el formulario.
+- El proxy hoy ignora `max_tokens` y `reasoning` enviados desde la página. El modelo de chat razona unos 300 tokens por respuesta; si se quiere bajar ese costo, hay que desactivar el razonamiento en el servidor.
+
 ## Contra avisos falsos
 
 - Los avisos nuevos aparecen como *Sin verificar* hasta que el Municipio llama y los verifica.

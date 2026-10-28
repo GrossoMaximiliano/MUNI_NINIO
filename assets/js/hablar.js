@@ -26,7 +26,6 @@
   var escribiendo = false;
   var pos = null;
   var terminado = false;
-  var colaDicha = 0;
 
   /* ---------- Utilidades ---------- */
   function hora() { var d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
@@ -77,6 +76,8 @@
     var extras = "";
     if (m.extras && m.extras.ubicacion && !pos) extras += '<button class="em-btn em-btn--primary em-btn--sm em-msg__action" type="button" data-ubic><i class="fa-solid fa-location-crosshairs"></i>Mandar mi ubicación</button>';
     if (m.extras && m.extras.emergencia) extras += '<a class="em-btn em-btn--urg em-btn--sm em-msg__action" href="tel:911"><i class="fa-solid fa-phone-volume"></i>Llamar al 911</a>';
+    if (m.extras && m.extras.cortado) extras += '<a class="em-btn em-btn--ok em-btn--sm em-msg__action" href="tel:103"><i class="fa-solid fa-phone"></i>Llamar a Defensa Civil (103)</a>' +
+      '<a class="em-btn em-btn--outline em-btn--sm em-msg__action" href="reportar.html"><i class="fa-solid fa-pen"></i>Usar el formulario</a>';
     return '<div class="em-msg em-msg--ia" data-i="' + i + '"><div class="em-msg__bubble">' +
       '<div class="em-audio' + (est ? " is-" + est : "") + (i === ultimaIA() && fase === "inicio" ? " is-hint" : "") + '">' +
         '<button class="em-audio__play" type="button" data-play="' + i + '" aria-label="' + (est === "sonando" ? "Pausar" : "Escuchar mensaje") + '"><i class="fa-solid ' + icono + '"></i></button>' +
@@ -175,7 +176,8 @@
     if (m === sonando) { detener(); pintar(); setFase(terminado ? "fin" : "turno"); return; }
     terminarGrabacion(true);
     detener();
-    if (!usarIA) { hablarLocal(m); return; }
+    // Audio pregrabado o voz del navegador: no gastan IA. Sólo se genera voz para respuestas nuevas.
+    if (m.local || (!usarIA && !m.audioUrl)) { hablarLocal(m); return; }
     m.estado = "cargando"; pintar(); setFase("sonando");
     (m.audioUrl ? Promise.resolve(m.audioUrl) : sintetizar(m.voz || m.texto)).then(function (url) {
       m.audioUrl = url;
@@ -200,10 +202,10 @@
   audio.addEventListener("ended", function () { if (sonando) alTerminar(sonando); });
 
   /* ---------- Mensajes de la asistente ---------- */
-  function decir(texto, extras, reporte) {
-    var cola = "";
-    if (!reporte) { cola = colaDicha < 2 ? V.cola : "Tocá el botón rojo para contestar."; colaDicha++; }
-    var m = { rol: "ia", texto: texto, voz: texto + (cola ? " " + cola : ""), extras: extras || {}, hora: hora() };
+  // opts.audioUrl: audio pregrabado (no se genera). opts.local: leer con la voz del navegador (gratis).
+  function decir(texto, extras, reporte, opts) {
+    opts = opts || {};
+    var m = { rol: "ia", texto: texto, extras: extras || {}, hora: hora(), audioUrl: opts.audioUrl, local: opts.local };
     historial.push(m);
     if (reporte) {
       terminado = true;
@@ -222,12 +224,13 @@
     txt = txt.replace(/<REPORTE>[\s\S]*?(<\/REPORTE>|$)/i, "");
     var extras = { ubicacion: /\[UBICACION\]/i.test(txt), emergencia: /\[911\]/.test(txt) };
     txt = txt.replace(/\[(UBICACION|911)\]/gi, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\s+\n/g, "\n").trim();
-    decir(txt || "Listo.", extras, rep ? crearReporte(rep) : null);
+    // El cierre siempre es el audio pregrabado: no se paga voz por la despedida.
+    if (rep) decir(V.cierre, extras, crearReporte(rep), { audioUrl: V.cierreAudio });
+    else decir(txt || "¿Me lo repetís?", extras);
   }
 
   function crearReporte(d) {
     var lugar = pos || { lat: E.centro[0] + (Math.random() - .5) * .012, lng: E.centro[1] + (Math.random() - .5) * .012 };
-    var validos = E.necesidades.map(function (n) { return n.id; });
     return EM.agregar({
       nivel: d.nivel === "urgente" ? "urgente" : "leve",
       nombre: String(d.nombre || "Vecino/a").slice(0, 60),
@@ -236,7 +239,6 @@
       ref: String(d.ref || "").slice(0, 120),
       lat: lugar.lat, lng: lugar.lng,
       personas: parseInt(d.personas, 10) || null,
-      necesita: (d.necesita || []).filter(function (x) { return validos.indexOf(x) >= 0; }),
       comentario: String(d.comentario || "").slice(0, 300),
       publico: d.publico !== false,
       porVoz: true
@@ -245,12 +247,15 @@
 
   /* ---------- Cerebro: IA del proxy o guión local ---------- */
   var TIMEOUT_MS = 45000;
+  function turnosVecino() { return historial.filter(function (m) { return m.rol === "yo" && !m.ubicacion; }).length; }
+
   function llamarIA() {
     var mensajes = [{ role: "system", content: V.prompt }].concat(historial.filter(function (m) {
-      return (m.rol === "ia" || m.rol === "yo") && !m.ubicacion && m.texto;
-    }).slice(-24).map(function (m) {
+      return (m.rol === "ia" || m.rol === "yo") && !m.ubicacion && !m.local && m.texto;
+    }).map(function (m) {
       return { role: m.rol === "yo" ? "user" : "assistant", content: m.texto };
     }));
+    if (turnosVecino() >= V.avisoTurnos) mensajes.push({ role: "system", content: V.apurar });
     var ctrl = new AbortController();
     var corte = setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS);
     return fetch(V.apiBase + "/ia/chat", {
@@ -269,6 +274,14 @@
   }
 
   function responder(texto) {
+    // Tope duro de la charla: se corta sin gastar más IA y se ofrecen otros caminos.
+    if (turnosVecino() > V.maxTurnos) {
+      decir("No pudimos completar el aviso por audio. Llamá a Defensa Civil al 103 o usá el formulario escrito.",
+        { cortado: true }, null, { local: true });
+      terminado = true;
+      setFase("fin");
+      return;
+    }
     setFase("procesando"); pintar();
     var p = usarIA ? llamarIA().catch(function (e) {
       if (window.console) console.warn("Asistente: el proxy de IA no respondió, sigo con el guión local.", e);
@@ -278,8 +291,8 @@
     p.then(procesar);
   }
 
-  // Guión local: las mismas preguntas que la IA, en orden fijo.
-  var G = { paso: 0, d: { necesita: [] } };
+  // Guión local: las mismas preguntas cortas que la IA, en orden fijo.
+  var G = { paso: 0, d: {} };
   var DIGITOS = { cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9 };
   var NUMEROS = { uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
   function norm(s) { return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
@@ -293,53 +306,37 @@
     if (w) return NUMEROS[w];
     return /\b(sola|solo)\b/.test(n) ? 1 : null;
   }
-  function necesidades(t) {
-    var n = norm(t), r = [];
-    if (/buscar|sacarnos|saquen de|evacu|salir|traslad|llev/.test(n)) r.push("evacuacion");
-    if (/(sacar|saquen|saque|sacarnos) el agua|bomb|achic|desagot/.test(n)) r.push("bombeo");
-    if (/colchon|ropa|frazada|cama/.test(n)) r.push("colchones");
-    if (/comida|aliment|agua potable|mercader/.test(n)) r.push("alimentos");
-    if (/remedio|medic|insulina/.test(n)) r.push("medicamentos");
-    if (/arena|bolsa/.test(n)) r.push("arena");
-    return r;
+  function esNo(t) { var n = norm(t); return /\bno\b/.test(n) && !/\bsi\b|\bdale\b|\bbueno\b|\bmanda/.test(n); }
+  // "Me llamo Rosa Medina, 3482 456789" → "Rosa Medina"
+  function nombreDe(t) {
+    return String(t).replace(/[\d\-–.,]+/g, " ")
+      .replace(/\b(hola|me llamo|soy|mi nombre es|mi telefono es|mi teléfono es|el telefono es|el teléfono es|telefono|teléfono|celular|y|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve)\b/gi, " ")
+      .replace(/\s+/g, " ").trim().split(" ").slice(0, 3).join(" ");
   }
-  function esNo(t) { var n = norm(t); return /\bno\b/.test(n) && !/\bsi\b|\bdale\b|\bbueno\b/.test(n); }
 
   function guion(t) {
     var d = G.d;
     switch (G.paso) {
-      case 0:
-        d.nivel = /inund|urgent|much|sube|subiendo|ayuda|salir|rodilla|cintura|peligro|atrapad|evacu/.test(norm(t)) ? "urgente" : "leve";
+      case 0: // gravedad (y dirección, si la dijo, queda en el comentario)
+        d.nivel = /inund|urgent|sube|subiendo|salir|rodilla|cintura|peligro|atrapad|evacu/.test(norm(t)) ? "urgente" : "leve";
         d.comentario = t;
         G.paso = 1;
-        return (d.nivel === "urgente"
-          ? "Entendido, lo anoto como urgente. Si hay peligro para alguien, llamá ya al 911. [911] Cortá la luz desde la llave general. "
-          : "Entendido. Si entra agua a la casa, cortá la luz desde la llave general. ") +
-          "¿En qué calle y número está tu casa? Decime también algo para encontrarla, como el color del portón. [UBICACION]";
+        return (d.nivel === "urgente" ? "Si hay peligro, llamá ya al 911. [911] " : "") + "¿En qué calle está tu casa? [UBICACION]";
       case 1:
         d.dir = t; G.paso = 2;
-        return "Gracias. ¿Cómo te llamás?";
+        return "¿Tu nombre y un teléfono para llamarte?";
       case 2:
-        d.nombre = t.replace(/^(hola,?\s*)?(me llamo|soy|mi nombre es)\s+/i, "").replace(/[.!]$/, "");
-        G.paso = 3;
-        return "Gracias, " + d.nombre.split(" ")[0] + ". ¿A qué número de teléfono te podemos llamar?";
+        var tel = telefono(t), nom = nombreDe(t);
+        if (nom) d.nombre = nom;
+        if (tel.length < 6) return d.nombre ? "¿Me decís el teléfono?" : "¿Me repetís tu nombre y teléfono?";
+        d.tel = tel; G.paso = 3;
+        return "¿Cuántas personas viven ahí?";
       case 3:
-        var tel = telefono(t);
-        if (tel.length < 6) return "No te entendí bien el número. ¿Me lo repetís despacito?";
-        d.tel = tel; G.paso = 4;
-        return "Perfecto. ¿Cuántas personas hay en la casa, y qué necesitan? Por ejemplo: sacar el agua, colchones, comida, remedios o que los vayan a buscar.";
-      case 4:
-        d.personas = cantidad(t);
-        d.necesita = necesidades(t);
-        G.paso = 5;
-        return "Último: tu nombre, teléfono y dirección se van a ver en el mapa para que el Municipio y los vecinos te puedan ayudar. Un aviso falso le saca ayuda a quien la necesita. ¿Estás de acuerdo?";
-      case 5:
-        d.publico = !esNo(t); G.paso = 6;
-        return "Te confirmo: aviso " + d.nivel + ", en " + d.dir + ", a nombre de " + d.nombre + ", teléfono " + d.tel.split("").join(" ") + ". ¿Está todo bien?";
+        d.personas = cantidad(t); G.paso = 4;
+        return "Aviso " + d.nivel + " en " + d.dir + ", a nombre de " + (d.nombre || "vos") + ". Se va a ver en el mapa para que te ayuden. ¿Lo mando?";
       default:
-        if (esNo(t)) { G.paso = 1; return "Perdón. Empecemos de nuevo con la dirección: ¿en qué calle y número está tu casa? [UBICACION]"; }
-        return "Listo, ya mandamos tu aviso. El Municipio te va a llamar para confirmar." +
-          "\n<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel, personas: d.personas, necesita: d.necesita, comentario: d.comentario, publico: d.publico }) + "</REPORTE>";
+        if (esNo(t)) { G.paso = 1; return "¿En qué calle está tu casa? [UBICACION]"; }
+        return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel, personas: d.personas, comentario: d.comentario, publico: true }) + "</REPORTE>";
     }
   }
 
@@ -353,7 +350,7 @@
 
   /* Grabación con MediaRecorder + transcripción en el proxy (modo IA) */
   var grab = null;
-  var MAX_SEG = 60;
+  var MAX_SEG = V.maxGrabacion;
 
   function aWav(blob) {
     var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -449,10 +446,10 @@
 
   function empezarReloj(g) {
     setFase("grabando");
-    reloj.textContent = "0:00";
+    reloj.textContent = "0:00 / " + tiempo(MAX_SEG);
     g.reloj = setInterval(function () {
       var seg = Math.floor((Date.now() - g.inicio) / 1000);
-      reloj.textContent = tiempo(seg);
+      reloj.textContent = tiempo(seg) + " / " + tiempo(MAX_SEG);
       if (seg >= MAX_SEG) terminarGrabacion(false);
     }, 250);
   }
@@ -517,8 +514,7 @@
 
   /* ---------- Inicio ---------- */
   if (!modoVoz()) mostrarTeclado(true);
-  historial.push({ rol: "ia", texto: V.saludo, voz: V.saludo + " " + V.cola, extras: {}, hora: hora() });
-  colaDicha = 1;
+  historial.push({ rol: "ia", texto: V.saludo, audioUrl: V.saludoAudio, extras: {}, hora: hora() });
   setFase("inicio");
   pintar();
 })();
