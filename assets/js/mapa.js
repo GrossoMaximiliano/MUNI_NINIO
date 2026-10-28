@@ -27,9 +27,11 @@
     document.getElementById("cLeve").textContent = abiertos.filter(function (r) { return r.nivel === "leve"; }).length;
   }
 
-  function enfocar(id, abrir) {
+  // centrar: mover el mapa al punto (desde la lista). Al tocar el punto en el mapa no se mueve:
+  // ahí Leaflet corre el mapa lo justo para que el globito entre entero.
+  function enfocar(id, abrir, centrar) {
     var m = marcadores[id]; if (!m) return;
-    mapa.setView(m.getLatLng(), 16, { animate: true });
+    if (centrar) mapa.setView(m.getLatLng(), 16, { animate: false });
     if (abrir) m.openPopup();
     Array.prototype.forEach.call(lista.querySelectorAll(".is-focus"), function (c) { c.classList.remove("is-focus"); });
     var card = lista.querySelector('[data-card="' + id + '"]');
@@ -40,9 +42,10 @@
     capa.clearLayers();
     marcadores = {};
     var vs = visibles();
+    var opc = EM.opcionesGlobo(mapa);
     vs.slice().reverse().forEach(function (r) {   // urgentes al final = quedan arriba en el mapa
       marcadores[r.id] = L.marker([r.lat, r.lng], { icon: EM.icono(r), title: r.nombre + " — " + EM.NIVEL[r.nivel].label })
-        .bindPopup(EM.tarjeta(r, { acciones: "publico" }), { maxWidth: 300 })
+        .bindPopup(EM.globo(r), opc)
         .on("click", function () { enfocar(r.id, false); })
         .addTo(capa);
     });
@@ -74,15 +77,25 @@
     EM.toast("Gracias. El Municipio lo va a revisar.");
   });
 
+  // "Ver todo" del globito: baja a la tarjeta completa de la lista.
+  document.getElementById("mapa").addEventListener("click", function (e) {
+    var v = e.target.closest("[data-ver-lista]"); if (!v) return;
+    var id = v.getAttribute("data-ver-lista");
+    mapa.closePopup();
+    enfocar(id, false);
+    var card = lista.querySelector('[data-card="' + id + '"]');
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+
   lista.addEventListener("click", function (e) {
     var b = e.target.closest("[data-ver]"); if (!b) return;
     document.getElementById("mapa").scrollIntoView({ behavior: "smooth", block: "center" });
-    enfocar(b.getAttribute("data-ver"), true);
+    enfocar(b.getAttribute("data-ver"), true, true);
   });
 
   pintar();
 
   // Viene desde "Ver mi aviso en el mapa": #LT-0123
   var id = decodeURIComponent(location.hash.slice(1));
-  if (id && marcadores[id]) setTimeout(function () { enfocar(id, true); }, 300);
+  if (id && marcadores[id]) setTimeout(function () { enfocar(id, true, true); }, 300);
 })();

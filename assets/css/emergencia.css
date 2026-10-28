@@ -265,8 +265,21 @@ html.dark-mode .em-filter[data-f="leve"].is-active { color: #1a1300; }
 .em-pin--atendido::after { display: none; }
 .em-pin--nuevo { background: var(--blue-600); width: 30px; height: 30px; }
 @keyframes em-pulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
-.leaflet-popup-content { font-family: var(--font-body); font-size: .95rem; margin: 14px 16px; min-width: 220px; }
-.leaflet-popup-content .em-card { border: 0; box-shadow: none; padding: 0; border-radius: 0; }
+.leaflet-popup-content { font-family: var(--font-body); font-size: .95rem; margin: 12px 14px; line-height: 1.4; }
+.em-popup .leaflet-popup-content-wrapper { border-radius: 14px; }
+.em-globo-abierto .leaflet-control-zoom { opacity: 0; pointer-events: none; }
+.leaflet-control-zoom { transition: opacity .15s; }
+.em-popup a.leaflet-popup-close-button { width: 32px; height: 32px; font-size: 22px; line-height: 30px; }
+.em-globo { display: grid; gap: 4px; }
+.em-globo__tags { display: flex; flex-wrap: wrap; gap: 6px; padding-right: 22px; }
+.em-globo__name { font-family: var(--font-head); font-size: 1.05rem; color: var(--heading); margin-top: 2px; }
+.em-globo__dir { color: var(--ink-700); font-size: .9rem; overflow-wrap: anywhere; }
+.em-globo__dir i { color: var(--ink-500); margin-right: 5px; }
+.em-globo__meta { color: var(--ink-500); font-size: .8rem; }
+.em-globo__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.em-globo__actions .em-btn { min-height: 44px; padding: 6px 8px; font-size: .88rem; }
+.em-globo__actions .em-btn:only-child { grid-column: 1 / -1; }
+.em-popup .em-btn--ok, .em-popup .em-btn--ok:hover { color: #fff; }
 html.dark-mode .leaflet-popup-content-wrapper, html.dark-mode .leaflet-popup-tip { background: var(--surface); color: var(--ink-900); }
 html.dark-mode .leaflet-tile-pane { filter: brightness(.75) contrast(1.1) saturate(.8); }
 html.dark-mode .leaflet-control-zoom a { background: var(--surface); color: var(--ink-900); border-color: var(--line); }

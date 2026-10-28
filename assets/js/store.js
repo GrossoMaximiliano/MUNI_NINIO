@@ -291,10 +291,50 @@
     '</article>';
   }
 
+  // Versión chica para el globito del mapa: en el celular la tarjeta completa no entra.
+  // "Ver todo" lleva a la tarjeta completa de la lista (data-ver-lista).
+  function globo(r) {
+    var n = NIVEL[r.nivel];
+    return '<div class="em-globo em-globo--' + (r.cerrado ? "atendido" : r.nivel) + '">' +
+      '<div class="em-globo__tags">' +
+        '<span class="em-tag em-tag--' + r.nivel + '"><i class="fa-solid ' + n.icon + '"></i>' + n.label + '</span>' +
+        (r.verificado ? '<span class="em-tag em-tag--verif"><i class="fa-solid fa-shield-halved"></i>Verificado</span>' : '') +
+      '</div>' +
+      '<b class="em-globo__name">' + esc(r.nombre) + '</b>' +
+      '<span class="em-globo__dir"><i class="fa-solid fa-location-dot"></i>' + esc(r.dir) + '</span>' +
+      '<span class="em-globo__meta">' + (r.personas ? r.personas + (r.personas == 1 ? " persona · " : " personas · ") : "") + hace(r.fecha) + '</span>' +
+      '<div class="em-globo__actions">' +
+        (r.tel ? '<a class="em-btn em-btn--ok em-btn--sm" href="' + telHref(r.tel) + '"><i class="fa-solid fa-phone"></i>Llamar</a>' : '') +
+        '<button class="em-btn em-btn--outline em-btn--sm" type="button" data-ver-lista="' + r.id + '">Ver todo</button>' +
+      '</div>' +
+    '</div>';
+  }
+  // El globo se achica al ancho del mapa. El autoPan de Leaflet es animado y a veces no llega a
+  // terminar (pestaña en segundo plano, teléfonos lentos): el mapa se corre a mano, sin animación.
+  function opcionesGlobo(mapa) {
+    if (!mapa._emGlobo) {
+      mapa._emGlobo = true;
+      mapa.on("popupopen", function (e) {
+        var c = mapa.getContainer().getBoundingClientRect();
+        var p = e.popup.getElement().getBoundingClientRect();
+        var m = 12, dx = 0, dy = 0;
+        if (p.left < c.left + m) dx = p.left - c.left - m;
+        else if (p.right > c.right - m) dx = p.right - c.right + m;
+        if (p.top < c.top + m) dy = p.top - c.top - m;
+        else if (p.bottom > c.bottom - m) dy = p.bottom - c.bottom + m;
+        if (dx || dy) mapa.panBy([dx, dy], { animate: false });
+        mapa.getContainer().classList.add("em-globo-abierto"); // los botones de zoom no tapan el globo
+      });
+      mapa.on("popupclose", function () { mapa.getContainer().classList.remove("em-globo-abierto"); });
+    }
+    var ancho = mapa.getContainer().clientWidth;
+    return { maxWidth: Math.min(260, ancho - 70), minWidth: Math.min(200, ancho - 70), autoPan: false, className: "em-popup" };
+  }
+
   window.EM = {
     todos: todos, agregar: agregar, cambiar: cambiar, cambiarEstado: cambiarEstado, reiniciar: reiniciar, ordenar: ordenar,
     esPublico: esPublico, marcarFalso: marcarFalso, miAvisoAbierto: miAvisoAbierto,
     esc: esc, hace: hace, telHref: telHref, NIVEL: NIVEL, ESTADO: ESTADO, toast: toast,
-    crearMapa: crearMapa, icono: icono, tarjeta: tarjeta
+    crearMapa: crearMapa, icono: icono, tarjeta: tarjeta, globo: globo, opcionesGlobo: opcionesGlobo
   };
 })();

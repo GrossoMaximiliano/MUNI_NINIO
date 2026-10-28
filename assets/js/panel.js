@@ -58,13 +58,25 @@
 
     capa.clearLayers();
     marcadores = {};
+    var opc = EM.opcionesGlobo(mapa);
     vs.slice().reverse().forEach(function (r) {
       marcadores[r.id] = L.marker([r.lat, r.lng], { icon: EM.icono(r), title: r.nombre })
-        .bindPopup(EM.tarjeta(r), { maxWidth: 300 }).addTo(capa);
+        .bindPopup(EM.globo(r), opc).addTo(capa);
     });
   }
 
   [fNivel, fVerif, fEstado].forEach(function (s) { s.addEventListener("change", pintar); });
+
+  // "Ver todo" del globito: lleva a la tarjeta completa, donde están las acciones.
+  document.getElementById("mapa").addEventListener("click", function (e) {
+    var v = e.target.closest("[data-ver-lista]"); if (!v) return;
+    mapa.closePopup();
+    var card = lista.querySelector('[data-card="' + v.getAttribute("data-ver-lista") + '"]');
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.add("is-focus");
+    setTimeout(function () { card.classList.remove("is-focus"); }, 2500);
+  });
 
   lista.addEventListener("click", function (e) {
     var v0 = e.target.closest("[data-verificar]");
@@ -87,7 +99,7 @@
     if (v && marcadores[v.getAttribute("data-ver")]) {
       var m = marcadores[v.getAttribute("data-ver")];
       if (window.innerWidth < 1000) document.getElementById("mapa").scrollIntoView({ behavior: "smooth", block: "center" });
-      mapa.setView(m.getLatLng(), 16);
+      mapa.setView(m.getLatLng(), 16, { animate: false });
       m.openPopup();
     }
   });
