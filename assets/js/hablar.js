@@ -127,9 +127,13 @@
   }
 
   function sintetizar(texto) {
+    // Si la voz tarda demasiado, se corta y se usa la del navegador: la charla nunca queda esperando.
+    var ctrl = new AbortController();
+    var corte = setTimeout(function () { ctrl.abort(); }, 20000);
     return fetch(V.apiBase + "/ia/speech", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: texto })
+      method: "POST", signal: ctrl.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input: texto })
     }).then(function (r) {
+      clearTimeout(corte);
       if (!r.ok) throw new Error("TTS " + r.status);
       var tipo = r.headers.get("Content-Type") || "";
       var rate = parseInt((tipo.match(/rate=(\d+)/) || [])[1], 10) || 24000;
@@ -151,6 +155,7 @@
   var pendientes = [];
   var actual = null;     // mensaje que se está cargando o sonando
   var esperando = false; // hay una respuesta de la IA en camino
+  var turnoAudio = 0;    // cambia cada vez que se corta el audio: descarta voces que llegan tarde
 
   function alTerminar(m) {
     if (sonando === m) sonando = null;
@@ -161,11 +166,17 @@
     setFase(terminado ? "fin" : esperando ? "procesando" : "turno");
   }
 
+  // Corta lo que suena o se está cargando. Pausar un audio no dispara "ended", así que se limpia acá:
+  // si quedara "actual" colgado, la próxima respuesta esperaría en la cola para siempre.
   function detener() {
+    turnoAudio++;
     audio.pause();
     if (window.speechSynthesis) speechSynthesis.cancel();
     if (sonando) { sonando.estado = null; sonando = null; }
+    if (actual) { actual.estado = null; actual = null; }
   }
+  // El vecino toma la palabra: se corta el audio y no suena nada más encima de lo que dice.
+  function callar() { pendientes = []; detener(); }
 
   function hablarLocal(m) {
     if (!window.speechSynthesis) { alTerminar(m); return; }
@@ -186,17 +197,20 @@
     if (m === sonando) { detener(); actual = null; pintar(); setFase(terminado ? "fin" : esperando ? "procesando" : "turno"); return; }
     terminarGrabacion(true);
     detener();
+    var mio = turnoAudio;
     actual = m;
     // Audio pregrabado o voz del navegador: no gastan IA. Sólo se genera voz para respuestas nuevas.
     if (m.local || (!usarIA && !m.audioUrl)) { hablarLocal(m); return; }
     m.estado = "cargando"; pintar(); setFase("sonando");
     (m.audioUrl ? Promise.resolve(m.audioUrl) : sintetizar(m.voz || m.texto)).then(function (url) {
       m.audioUrl = url;
+      if (mio !== turnoAudio) return; // el vecino ya habló o tocó otro audio: no suena encima
       audio.src = url;
       sonando = m; m.estado = "sonando";
       pintar();
-      return audio.play();
+      return audio.play().then(function () { vigilarFin(m, mio); });
     }).catch(function (e) {
+      if (mio !== turnoAudio) return;
       if (e && e.name === "NotAllowedError") { m.estado = null; sonando = null; actual = null; pintar(); setFase("inicio"); return; }
       hablarLocal(m); // si el proxy no responde, lee la voz del navegador
     });
@@ -211,6 +225,18 @@
     if (bar) bar.style.width = (audio.currentTime / audio.duration * 100) + "%";
   });
   audio.addEventListener("ended", function () { if (sonando) alTerminar(sonando); });
+  audio.addEventListener("error", function () { if (sonando) alTerminar(sonando); });
+  // Algunos celulares no avisan cuando termina el audio: si llegó al final, o pasó su duración + 3 s
+  // (30 s si no se sabe), se da por terminado igual.
+  function vigilarFin(m, mio) {
+    var t0 = Date.now();
+    (function chk() {
+      if (sonando !== m || mio !== turnoAudio) return;
+      var d = audio.duration, conocida = isFinite(d) && d > 0;
+      if ((conocida && (audio.ended || audio.currentTime >= d - .05)) || Date.now() - t0 > (conocida ? d * 1000 + 3000 : 30000)) { alTerminar(m); return; }
+      setTimeout(chk, 1000);
+    })();
+  }
 
   /* ---------- Mensajes de la asistente ---------- */
   // opts.audioUrl: audio pregrabado (no se genera). opts.local: leer con la voz del navegador (gratis).
@@ -480,7 +506,7 @@
 
   function iniciarGrabacion() {
     if (grab || terminado) return;
-    detener();
+    callar();
     var modo = modoVoz();
     if (!modo) { mostrarTeclado(true); return; }
     if (modo === "sr") return iniciarSR();
@@ -571,7 +597,7 @@
   formTexto.addEventListener("submit", function (e) {
     e.preventDefault();
     if (fase === "procesando" || terminado) return;
-    detener();
+    callar();
     var t = inputTexto.value; inputTexto.value = "";
     enviarTexto(t, false);
   });
@@ -606,6 +632,16 @@
       }, { enableHighAccuracy: true, timeout: 10000 });
     }
   });
+
+  /* ---------- Vigilante ---------- */
+  // Red de seguridad: si la pantalla queda en "Un momento…" o "hablando…" sin nada en curso,
+  // se reproduce lo que quedó en cola o se le devuelve el turno al vecino. Nunca queda colgada.
+  setInterval(function () {
+    if (terminado || grab || esperando || actual) return;
+    if (historial.some(function (m) { return m.transcribiendo; })) return;
+    if (pendientes.length) { reproducir(pendientes.shift()); return; }
+    if (fase === "procesando" || fase === "sonando") { pintar(); setFase("turno"); }
+  }, 2000);
 
   /* ---------- Inicio ---------- */
   if (!modoVoz()) mostrarTeclado(true);
