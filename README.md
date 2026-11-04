@@ -28,10 +28,14 @@ Cada respuesta del vecino pasa por tres IAs (transcripción, chat y voz), así q
 
 Con eso el aviso se manda solo, sin resumen ni confirmación: el saludo ya avisa que el aviso se ve en el mapa.
 
-- Preguntas de 15 palabras como máximo, sin agradecimientos ni repeticiones. El teléfono se pide dos veces como máximo (puede ser de un familiar o vecino).
+- Mensajes de 25 palabras como máximo: un reconocimiento corto ("Entiendo.", "Perfecto, Rosa.") y la próxima pregunta. Si la situación es urgente, suma una frase de calma.
+- Si un dato no sirve, la asistente dice qué está mal y cómo decirlo. Teléfono válido: de 6 a 13 dígitos (fijo local, con 15, con característica o con 0/549). Si queda corto: "Ese número me quedó corto, entendí sólo cuatro números. Decímelo con la característica, por ejemplo 3482 y seis números."
+- El teléfono válido se confirma leído en grupos ("Te anoto el 3482, 45 67 89") en el mismo mensaje de la pregunta siguiente, así no suma turnos. Se pide hasta tres veces; si el vecino no tiene, se le pide una vez el de un familiar o vecino.
+- Si la IA intenta cerrar con un teléfono inválido, la página lo frena una vez y lo vuelve a pedir explicando el motivo.
+- El guión local entiende números dichos de a pares ("treinta y cuatro ochenta y dos").
 - El saludo, el cierre y el "gracias" por la ubicación son audios pregrabados (`assets/audio/`), así que no se generan cada vez. Si se cambian esos textos en `voz-prompt.js`, hay que regenerar los audios.
 - Cada audio del vecino dura 30 segundos como máximo.
-- Desde la 3.ª respuesta se le pide a la IA que cierre con lo que tenga. Pasada la 6.ª, la charla se corta y se ofrece llamar al 103 o usar el formulario.
+- Desde la 3.ª respuesta se le pide a la IA que cierre con lo que tenga. Pasada la 9.ª (deja lugar para corregir datos), la charla se corta y se ofrece llamar al 103 o usar el formulario.
 - El proxy hoy ignora `max_tokens` y `reasoning` enviados desde la página. El modelo de chat razona unos 300 tokens por respuesta; si se quiere bajar ese costo, hay que desactivar el razonamiento en el servidor.
 
 ## Contra avisos falsos

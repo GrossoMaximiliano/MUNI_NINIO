@@ -94,7 +94,8 @@
       '<h2>¡Aviso enviado!</h2>' +
       '<p>' + (r.actualizado ? "Actualizamos tu aviso anterior. Número:" : "Tu número de aviso es") + '</p>' +
       '<div class="em-done__nro">' + r.id + '</div>' +
-      '<p class="muted">El Municipio te va a llamar al <b>' + EM.esc(r.tel) + '</b> para confirmar.</p>' +
+      (r.tel ? '<p class="muted">El Municipio te va a llamar al <b>' + EM.esc(telParaLeer(String(r.tel).replace(/\D/g, ""))) + '</b> para confirmar.</p>'
+        : '<p class="muted">No dejaste teléfono. Si podés, llamá a Defensa Civil al <b>103</b> para que puedan ubicarte.</p>') +
       (r.nivel === "urgente" ? '<a class="em-btn em-btn--urg em-btn--block" href="tel:911"><i class="fa-solid fa-phone-volume"></i>Si hay peligro, llamá al 911</a>' : "") +
       '<a class="em-btn em-btn--primary em-btn--block" href="mapa.html#' + r.id + '"><i class="fa-solid fa-map-location-dot"></i>Ver mi aviso en el mapa</a>' +
       '<a class="em-btn em-btn--outline em-btn--block" href="index.html"><i class="fa-solid fa-house"></i>Volver al inicio</a>' +
@@ -236,10 +237,16 @@
     if (mR) { try { rep = JSON.parse(mR[1]); } catch (e) { rep = null; } }
     txt = txt.replace(/<REPORTE>[\s\S]*?(<\/REPORTE>|$)/i, "");
     var extras = { ubicacion: /\[UBICACION\]/i.test(txt), emergencia: /\[911\]/.test(txt) };
-    txt = txt.replace(/\[(UBICACION|911)\]/gi, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\s+\n/g, "\n").trim();
+    txt = txt.replace(/\[(UBICACION|911)\]/gi, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/ {2,}/g, " ").replace(/\s+\n/g, "\n").trim();
+    // Red de seguridad: si la IA quiere cerrar con un teléfono que no sirve, se lo pide de nuevo explicando por qué.
+    if (rep && rep.tel) {
+      var vt = validarTel(telefono(rep.tel));
+      if (!vt.ok && !G.redTel) { G.redTel = true; decir(errorTel(vt), extras); return; }
+      if (!vt.ok) rep.tel = "";
+    }
     // El cierre siempre es el audio pregrabado: no se paga voz por la despedida.
     if (rep) decir(V.cierre, extras, crearReporte(rep), { audioUrl: V.cierreAudio });
-    else decir(txt || "¿Me lo repetís?", extras);
+    else decir(txt || "Perdón, no te entendí bien. ¿Me lo decís de nuevo?", extras);
   }
 
   function crearReporte(d) {
@@ -307,13 +314,50 @@
   }
 
   // Guión local: las mismas preguntas cortas que la IA, en orden fijo.
-  var G = { paso: 0, d: {} };
-  var DIGITOS = { cero: 0, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9 };
+  var G = { paso: 0, d: {}, pedidosTel: 1 };
+  var DIGITOS = { cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9 };
+  var DIEZ_A_29 = { diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19,
+    veinte: 20, veintiun: 21, veintiuno: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29 };
+  var DECENAS = { treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90 };
   var NUMEROS = { uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
   function norm(s) { return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+  // Dígitos de un teléfono dicho en números o en palabras, también de a pares: "treinta y cuatro ochenta y dos" → "3482".
   function telefono(t) {
-    return norm(t).split(/[^a-z0-9]+/).map(function (w) { return /^\d+$/.test(w) ? w : (w in DIGITOS ? DIGITOS[w] : ""); }).join("");
+    var w = norm(t).split(/[^a-z0-9]+/), out = "";
+    for (var i = 0; i < w.length; i++) {
+      if (/^\d+$/.test(w[i])) out += w[i];
+      else if (w[i] in DECENAS) {
+        var v = DECENAS[w[i]];
+        if (w[i + 1] === "y" && w[i + 2] in DIGITOS) { v += DIGITOS[w[i + 2]]; i += 2; }
+        out += v;
+      }
+      else if (w[i] in DIEZ_A_29) out += DIEZ_A_29[w[i]];
+      else if (w[i] in DIGITOS) out += DIGITOS[w[i]];
+    }
+    return out;
   }
+  // Fijo local (6 o 7), celular con 15 (8), con característica (10) o con 0/549 adelante (hasta 13).
+  function validarTel(d) {
+    if (!d) return { ok: false, motivo: "nada", n: 0 };
+    if (d.length < 6) return { ok: false, motivo: "corto", n: d.length };
+    if (d.length > 13) return { ok: false, motivo: "largo", n: d.length };
+    if (/^(\d)\1+$/.test(d)) return { ok: false, motivo: "nada", n: d.length };
+    return { ok: true, n: d.length };
+  }
+  var NUM_LETRAS = ["cero", "uno", "dos", "tres", "cuatro", "cinco"];
+  function errorTel(v) {
+    if (v.motivo === "corto") return "Ese número me quedó corto, entendí sólo " + (v.n === 1 ? "un número" : (NUM_LETRAS[v.n] || v.n) + " números") + ". Decímelo con la característica, por ejemplo 3482 y seis números.";
+    if (v.motivo === "largo") return "Me quedaron números de más. ¿Me lo decís de nuevo, despacio?";
+    return "No llegué a entender el número. ¿Me lo decís de a poco, de a dos números?";
+  }
+  // Agrupado para que se entienda al escucharlo: "3482456789" → "3482, 45 67 89".
+  function telParaLeer(d) {
+    function pares(s) { return s.length % 2 ? s.slice(0, 3) + (s.length > 3 ? " " + pares(s.slice(3)) : "") : s.match(/../g).join(" "); }
+    if (d.length >= 10) { var pre = d.slice(0, d.length - 10); return (pre ? pre + " " : "") + d.slice(-10, -6) + ", " + pares(d.slice(-6)); }
+    if (d.length === 8 && d.slice(0, 2) === "15") return "15, " + pares(d.slice(2));
+    return pares(d);
+  }
+  function sinTelefono(t) { return /\bno (tengo|tiene|tenemos|hay)\b|\bsin (telefono|celular)\b/.test(norm(t)); }
   function cantidad(t) {
     var n = norm(t), m = n.match(/\b(\d{1,2})\b/);
     if (m) return parseInt(m[1], 10);
@@ -325,14 +369,18 @@
   // "Me llamo Rosa Medina, 3482 456789" → "Rosa Medina"
   function nombreDe(t) {
     return String(t).replace(/[\d\-–.,]+/g, " ")
-      .replace(/\b(hola|me llamo|soy|mi nombre es|mi telefono es|mi teléfono es|el telefono es|el teléfono es|telefono|teléfono|celular|y|cero|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve)\b/gi, " ")
+      .replace(/(^|\s)(hola|me llamo|soy|mi nombre es|mi telefono es|mi teléfono es|el telefono es|el teléfono es|telefono|teléfono|celular|numero|número|es|el|la|de|mi|a ver|bueno|si|sí|dale|ok|perdon|perdón|y|cero|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieci\S*|veinti?\S*|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa)(?=\s|$)/gi, " ")
+      .replace(/(^|\s)(hola|me llamo|soy|mi nombre es|es|el|la|de|mi|bueno|y|no|tengo|tiene|tenemos|hay|sin)(?=\s|$)/gi, " ")
       .replace(/\s+/g, " ").trim().split(" ").slice(0, 3).join(" ");
   }
 
   // Sin confirmación final: con los tres datos se manda el aviso (el saludo ya avisa que se ve en el mapa).
+  // Cada respuesta reconoce lo que dijo el vecino y, si algo no sirve, explica qué y cómo decirlo.
+  var PERSONAS = "¿Cuántas personas viven en la casa?";
+  function confirmarTel(d) { return "Perfecto" + (d.nombre ? ", " + d.nombre.split(" ")[0] : "") + ". Te anoto el " + telParaLeer(d.tel) + ". " + PERSONAS; }
   function guion(t) {
     var d = G.d;
-    var B = "¿Tu nombre y un teléfono para llamarte?";
+    var B = "¿Me decís tu nombre y un teléfono para llamarte?";
     if (t === V.ubicacionMensaje) {
       if (G.paso !== 1) return null; // ya tenía la dirección: sólo queda el "gracias"
       d.dir = "Ubicación por GPS"; G.paso = 2;
@@ -342,23 +390,46 @@
       case 0: // qué pasa y, si la dijo, la calle
         d.nivel = /inund|urgent|sube|subiendo|salir|rodilla|cintura|peligro|atrapad|evacu/.test(norm(t)) ? "urgente" : "leve";
         d.comentario = t;
-        var peligro = d.nivel === "urgente" ? "Si hay peligro, llamá ya al 911. [911] " : "";
-        if (/\b(calle|avenida|av|pasaje|ruta|camino|esquina|barrio|frente|al lado)\b/.test(norm(t))) { d.dir = t; G.paso = 2; return peligro + B; }
+        var inicio = d.nivel === "urgente" ? "Entiendo, ya te ayudamos. Si hay peligro, llamá ya al 911. [911] " : "Entiendo. ";
+        if (/\b(calle|avenida|av|pasaje|ruta|camino|esquina|barrio|frente|al lado)\b/.test(norm(t))) { d.dir = t; G.paso = 2; return inicio + B; }
         G.paso = 1;
-        return peligro + "¿En qué calle está tu casa? [UBICACION]";
+        return inicio + "¿En qué calle está tu casa? [UBICACION]";
       case 1:
+        if (/\bno (se|me acuerdo|tengo idea)\b|\bni idea\b/.test(norm(t)) && !G.pidioRef) {
+          G.pidioRef = true;
+          return "No hay problema. Tocá Mandar mi ubicación, o decime una referencia, como una esquina o un negocio. [UBICACION]";
+        }
         d.dir = t; G.paso = 2;
-        return B;
-      case 2:
-        var tel = telefono(t), nom = nombreDe(t);
+        return "Bien. " + B;
+      case 2: // nombre y teléfono
+        var nom = nombreDe(t);
         if (nom && !d.nombre) d.nombre = nom;
-        G.pedidosTel = (G.pedidosTel || 1) + 1;
-        if (tel.length < 6 && G.pedidosTel <= 2) return "¿Un teléfono para llamarte? Puede ser de un familiar o vecino.";
-        if (tel.length >= 6) d.tel = tel;
+        if (sinTelefono(t)) {
+          if (!G.pidioFamiliar) { G.pidioFamiliar = true; return "No hay problema. ¿Tenés el teléfono de algún familiar o vecino?"; }
+          G.paso = 3;
+          return "No pasa nada, seguimos así. " + PERSONAS;
+        }
+        var tel = telefono(t), v = validarTel(tel);
+        if (v.ok) {
+          d.tel = tel;
+          if (!d.nombre) { G.paso = "nombre"; return "Gracias. ¿Y tu nombre?"; }
+          G.paso = 3;
+          return confirmarTel(d);
+        }
+        G.pedidosTel++;
+        if (G.pedidosTel <= V.maxPedidosTel) return errorTel(v);
         G.paso = 3;
-        return "¿Cuántas personas viven ahí?";
+        return "No pasa nada, seguimos sin teléfono. " + PERSONAS;
+      case "nombre":
+        d.nombre = nombreDe(t) || String(t).trim().split(/\s+/).slice(0, 3).join(" ");
+        G.paso = 3;
+        return confirmarTel(d);
       default:
         d.personas = cantidad(t);
+        if (d.personas == null && !G.pidioPersonas) {
+          G.pidioPersonas = true;
+          return "No te entendí cuántas son. Decime un número, por ejemplo: somos cuatro.";
+        }
         return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel || "", personas: d.personas, comentario: d.comentario, publico: true }) + "</REPORTE>";
     }
   }
