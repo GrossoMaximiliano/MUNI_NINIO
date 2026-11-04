@@ -283,7 +283,8 @@
       '<div class="em-card__name">' + esc(r.nombre) + '</div>' +
       '<p class="em-card__where"><i class="fa-solid fa-location-dot"></i>' + esc(r.dir) + (r.ref ? ' <span class="em-card__ref">(' + esc(r.ref) + ')</span>' : '') + '</p>' +
       '<p class="em-card__where"><i class="fa-solid fa-phone"></i><a href="' + telHref(r.tel) + '">' + esc(r.tel) + '</a>' +
-        (r.personas ? ' · <i class="fa-solid fa-people-roof"></i>' + r.personas + (r.personas == 1 ? " persona" : " personas") : "") + '</p>' +
+        (r.personas ? ' · <i class="fa-solid fa-people-roof"></i>' + r.personas + (r.personas == 1 ? " persona" : " personas") : "") +
+        (r.ninos ? ' · <i class="fa-solid fa-child"></i>' + r.ninos + (r.ninos == 1 ? " niño" : " niños") : "") + '</p>' +
       (r.comentario ? '<p class="em-card__comment">“' + esc(r.comentario) + '”</p>' : '') +
       '<p class="em-card__meta">' + r.id + ' · ' + hace(r.fecha) +
         (opts.verEnMapa ? ' · <button class="em-card__see" type="button" data-ver="' + r.id + '">Ver en el mapa</button>' : '') + '</p>' +
@@ -302,7 +303,7 @@
       '</div>' +
       '<b class="em-globo__name">' + esc(r.nombre) + '</b>' +
       '<span class="em-globo__dir"><i class="fa-solid fa-location-dot"></i>' + esc(r.dir) + '</span>' +
-      '<span class="em-globo__meta">' + (r.personas ? r.personas + (r.personas == 1 ? " persona · " : " personas · ") : "") + hace(r.fecha) + '</span>' +
+      '<span class="em-globo__meta">' + (r.personas ? r.personas + (r.personas == 1 ? " persona · " : " personas · ") : "") + (r.ninos ? r.ninos + (r.ninos == 1 ? " niño · " : " niños · ") : "") + hace(r.fecha) + '</span>' +
       '<div class="em-globo__actions">' +
         (r.tel ? '<a class="em-btn em-btn--ok em-btn--sm" href="' + telHref(r.tel) + '"><i class="fa-solid fa-phone"></i>Llamar</a>' : '') +
         '<button class="em-btn em-btn--outline em-btn--sm" type="button" data-ver-lista="' + r.id + '">Ver todo</button>' +

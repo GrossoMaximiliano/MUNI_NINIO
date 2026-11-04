@@ -49,6 +49,7 @@
     document.getElementById("kLeve").textContent = abiertos.filter(function (r) { return r.nivel === "leve" && r.estado === "pendiente"; }).length;
     document.getElementById("kSinVerif").textContent = abiertos.filter(function (r) { return !r.verificado; }).length;
     document.getElementById("kPers").textContent = abiertos.reduce(function (s, r) { return s + (r.personas || 1); }, 0);
+    document.getElementById("kNinos").textContent = abiertos.reduce(function (s, r) { return s + (r.ninos || 0); }, 0);
 
     var vs = filtrados(todos);
     document.getElementById("cuenta").textContent = vs.length + (vs.length === 1 ? " reporte" : " reportes");
@@ -105,7 +106,7 @@
   });
 
   document.getElementById("csv").addEventListener("click", function () {
-    var cols = ["id", "nivel", "estado", "verificado", "falsos", "nombre", "tel", "dir", "ref", "personas", "comentario", "lat", "lng", "fecha"];
+    var cols = ["id", "nivel", "estado", "verificado", "falsos", "nombre", "tel", "dir", "ref", "personas", "ninos", "comentario", "lat", "lng", "fecha"];
     function celda(v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }
     var filas = filtrados(EM.ordenar(EM.todos())).map(function (r) {
       return cols.map(function (c) {

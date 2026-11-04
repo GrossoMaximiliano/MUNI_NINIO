@@ -139,6 +139,7 @@
       ref: document.getElementById("ref").value.trim(),
       lat: pos.lat, lng: pos.lng,
       personas: parseInt(document.getElementById("personas").value, 10) || null,
+      ninos: isFinite(parseInt(document.getElementById("ninos").value, 10)) ? parseInt(document.getElementById("ninos").value, 10) : null,
       comentario: document.getElementById("comentario").value.trim()
     });
 

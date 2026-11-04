@@ -106,6 +106,9 @@ html.dark-mode .em-btn--ok { background: #2e7d4f; }
 .em-stat--urg b { color: var(--urg); }
 .em-stat--leve b { color: var(--leve); }
 .em-stat--ok b { color: var(--ok); }
+.em-stat__sub { display: block; margin-top: 4px; font-size: .78rem; font-weight: 600; color: var(--ink-700, var(--ink-500)); }
+.em-stat .em-stat__sub b { display: inline; font: inherit; color: inherit; margin: 0 3px 0 5px; }
+.em-stat__sub i { color: var(--ok); }
 
 .em-tips { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px; margin-bottom: 28px; }
 .em-tips h2 { font-size: 1.2rem; display: flex; gap: 10px; align-items: center; }

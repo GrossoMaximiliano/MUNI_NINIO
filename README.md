@@ -24,7 +24,9 @@ Cada respuesta del vecino pasa por tres IAs (transcripción, chat y voz), así q
 
 1. Qué pasa y en qué calle (lo pregunta el saludo). Si no dice la calle, puede tocar **Mandar mi ubicación**: la asistente contesta con un audio fijo ("Gracias, ya tengo tu ubicación") y sigue.
 2. Nombre y teléfono, en una sola pregunta.
-3. Cuántas personas viven. No se pregunta qué necesitan: cada vecino ayuda como quiera.
+3. Última pregunta: cuántas personas están con el vecino y cuántos son niños, para que el Municipio sepa qué llevar (ropa, pañales, comida). Si dice sólo el total, se pregunta una vez cuántos son niños. No se pregunta qué necesitan: cada vecino ayuda como quiera.
+
+Los niños se ven en la tarjeta del mapa, en el panel (debajo de "Personas afectadas") y en el CSV. El formulario escrito también los pide.
 
 Con eso el aviso se manda solo, sin resumen ni confirmación: el saludo ya avisa que el aviso se ve en el mapa.
 

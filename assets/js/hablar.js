@@ -285,6 +285,7 @@
       ref: String(d.ref || "").slice(0, 120),
       lat: lugar.lat, lng: lugar.lng,
       personas: parseInt(d.personas, 10) || null,
+      ninos: isFinite(parseInt(d.ninos, 10)) ? parseInt(d.ninos, 10) : null,
       comentario: String(d.comentario || "").slice(0, 300),
       publico: d.publico !== false,
       porVoz: true
@@ -391,6 +392,28 @@
     if (w) return NUMEROS[w];
     return /\b(sola|solo)\b/.test(n) ? 1 : null;
   }
+  // "Somos cinco, dos son nenes" → { total: 5, ninos: 2 }. "Estoy sola con mis dos hijos" → { total: 3, ninos: 2 }.
+  var CHICOS = "(?:ninos?|ninas?|nenes?|nenas?|chicos?|chicas?|chiquitos?|chiquitas?|bebes?|menores?|hijos?|hijas?|criaturas?|pibes?|gurises?|gurices?)";
+  var MAS_NUMEROS = { un: 1, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15 };
+  function personasDe(t) {
+    var n = " " + norm(t).replace(/[a-z]+/g, function (w) {
+      return w in NUMEROS ? NUMEROS[w] : w in MAS_NUMEROS ? MAS_NUMEROS[w] : w;
+    }) + " ";
+    var ninos = null, sinMatch = n;
+    if (new RegExp("\\b(ningun|ninguno|ninguna|no hay|no tengo|no tenemos|sin|cero)\\b[^.\\d]{0,15}" + CHICOS + "|" + CHICOS + "[^.\\d]{0,10}\\b(ninguno|ninguna|no)\\b").test(n)) ninos = 0;
+    else {
+      var m = n.match(new RegExp("(\\d{1,2})\\s+(?:(?:de ellos|de ellas|son|somos|mis|de mis|nuestros)\\s+){0,2}" + CHICOS))
+        || n.match(new RegExp(CHICOS + "\\s+(?:(?:son|hay|tengo|tenemos)\\s+)?(\\d{1,2})\\b"));
+      if (m) { ninos = parseInt(m[1], 10); sinMatch = n.replace(m[0], " "); }
+      else if (new RegExp("\\b(mi|con)\\s+" + CHICOS + "\\b").test(n)) ninos = 1;
+    }
+    var mt = sinMatch.match(/\b(\d{1,2})\b/), total = mt ? parseInt(mt[1], 10) : null;
+    var sola = /\b(sola|solo|yo y|yo con|estoy con)\b/.test(n);
+    if (total == null && sola) total = 1 + (ninos || 0);
+    else if (total != null && ninos != null && (ninos > total || /\b(adultos?|grandes|mayores)\b/.test(n))) total += ninos;
+    if (total === 1 && ninos == null) ninos = 0;
+    return { total: total, ninos: ninos };
+  }
   function esNo(t) { var n = norm(t); return /\bno\b/.test(n) && !/\bsi\b|\bdale\b|\bbueno\b|\bmanda/.test(n); }
   // "Me llamo Rosa Medina, 3482 456789" → "Rosa Medina"
   function nombreDe(t) {
@@ -402,7 +425,7 @@
 
   // Sin confirmación final: con los tres datos se manda el aviso (el saludo ya avisa que se ve en el mapa).
   // Cada respuesta reconoce lo que dijo el vecino y, si algo no sirve, explica qué y cómo decirlo.
-  var PERSONAS = "¿Cuántas personas viven en la casa?";
+  var PERSONAS = "Última pregunta: ¿cuántas personas están con vos, y cuántos son niños?";
   function confirmarTel(d) { return "Perfecto" + (d.nombre ? ", " + d.nombre.split(" ")[0] : "") + ". Te anoto el " + telParaLeer(d.tel) + ". " + PERSONAS; }
   function guion(t) {
     var d = G.d;
@@ -451,12 +474,24 @@
         G.paso = 3;
         return confirmarTel(d);
       default:
-        d.personas = cantidad(t);
-        if (d.personas == null && !G.pidioPersonas) {
-          G.pidioPersonas = true;
-          return "No te entendí cuántas son. Decime un número, por ejemplo: somos cuatro.";
+        if (G.esperaNinos) { // ya dijo cuántos son; ahora contesta cuántos niños
+          G.esperaNinos = false;
+          var k = personasDe(t);
+          d.ninos = k.ninos != null ? k.ninos : /\b(no|ninguno|ninguna|cero)\b/.test(norm(t)) ? 0 : k.total;
+          if (d.ninos != null && d.personas != null && d.ninos > d.personas) d.personas += d.ninos;
+        } else {
+          var p = personasDe(t);
+          d.personas = p.total; d.ninos = p.ninos;
+          if (d.personas == null && d.ninos == null && !G.pidioPersonas) {
+            G.pidioPersonas = true;
+            return "No te entendí cuántas son. Decímelo así, por ejemplo: somos cuatro y hay dos niños.";
+          }
+          if (d.personas != null && d.ninos == null && !G.pidioNinos) {
+            G.pidioNinos = true; G.esperaNinos = true;
+            return "Bien. ¿Y cuántos de ellos son niños?";
+          }
         }
-        return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel || "", personas: d.personas, comentario: d.comentario, publico: true }) + "</REPORTE>";
+        return "<REPORTE>" + JSON.stringify({ nivel: d.nivel, dir: d.dir, ref: "", nombre: d.nombre, tel: d.tel || "", personas: d.personas, ninos: d.ninos, comentario: d.comentario, publico: true }) + "</REPORTE>";
     }
   }
 
